@@ -152,6 +152,8 @@ public class SPCRJointDynamicsController : MonoBehaviour
     public bool _IsDebugDraw_StructuralVertical = false;
     public bool _IsDebugDraw_StructuralHorizontal = false;
     public bool _IsDebugDraw_Shear = false;
+    public bool _IsDebugDraw_BendingVertical = false;
+    public bool _IsDebugDraw_BendingHorizontal = false;
 
     [SerializeField]
     SPCRJointDynamicsJob.Constraint[][] _ConstraintTable;
@@ -449,7 +451,7 @@ public class SPCRJointDynamicsController : MonoBehaviour
     {
         for (int i = 0; i < _ConstraintsStructuralVertical.Length; ++i)
         {
-            _ConstraintsStructuralHorizontal[i].UpdateLength();
+            _ConstraintsStructuralVertical[i].UpdateLength();
         }
         for (int i = 0; i < _ConstraintsStructuralHorizontal.Length; ++i)
         {
@@ -646,7 +648,7 @@ public class SPCRJointDynamicsController : MonoBehaviour
                 childPointA,
                 childPointB));
 
-            CreationConstraintHorizontal(childPointA, childPointB, ref ConstraintList);
+            CreationConstraintBendingHorizontal(childPointA, childPointB, ref ConstraintList);
         }
         else if ((childPointA != null) && (childPointB == null))
         {
@@ -817,6 +819,16 @@ public class SPCRJointDynamicsController : MonoBehaviour
         {
             Gizmos.color = new Color(0.4f, 0.4f, 0.8f);
             OnDrawGizms_Constraint(_ConstraintsShear);
+        }
+        if (_IsDebugDraw_BendingVertical)
+        {
+            Gizmos.color = new Color(0.8f, 0.8f, 0.4f);
+            OnDrawGizms_Constraint(_ConstraintsBendingVertical);
+        }
+        if (_IsDebugDraw_BendingHorizontal)
+        {
+            Gizmos.color = new Color(0.4f, 0.8f, 0.8f);
+            OnDrawGizms_Constraint(_ConstraintsBendingHorizontal);
         }
     }
 }
