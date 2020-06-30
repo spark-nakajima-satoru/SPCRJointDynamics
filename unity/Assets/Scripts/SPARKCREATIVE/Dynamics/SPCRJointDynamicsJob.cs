@@ -128,6 +128,7 @@ public unsafe class SPCRJointDynamicsJob
 
     Transform _RootBone;
     Vector3 _OldRootPosition;
+    Quaternion _OldRootRotation;
     int _PointCount;
     NativeArray<PointRead> _PointsR;
     NativeArray<PointReadWrite> _PointsRW;
@@ -147,6 +148,7 @@ public unsafe class SPCRJointDynamicsJob
         _RootBone = RootBone;
         _PointCount = Points.Length;
         _OldRootPosition = _RootBone.position;
+        _OldRootRotation = _RootBone.rotation;
 
         var PointsR = new PointRead[_PointCount];
         var PointsRW = new PointReadWrite[_PointCount];
@@ -265,8 +267,9 @@ public unsafe class SPCRJointDynamicsJob
         {
             pPointRW[i].OldPosition = pPointRW[i].Position = _PointTransforms[i].position;
         }
-        
+
         _OldRootPosition = _RootBone.position;
+        _OldRootRotation = _RootBone.rotation;
     }
 
     public void Restore()
@@ -281,11 +284,13 @@ public unsafe class SPCRJointDynamicsJob
         }
 
         _OldRootPosition = _RootBone.position;
+        _OldRootRotation = _RootBone.rotation;
     }
 
     public void Execute(
-        Transform RootTransform, float RootSlideLimit,
-        float StepTime, Vector3 WindForce,
+        Transform RootTransform, float RootSlideLimit, float RootRotateLimit,
+        float StepTime,
+        Vector3 WindForce,
         int Relaxation, float SpringK,
         bool IsEnableFloorCollision, float FloorHeight,
         bool IsEnableColliderCollision)
@@ -293,15 +298,28 @@ public unsafe class SPCRJointDynamicsJob
         WaitForComplete();
 
         var RootPosition = RootTransform.position;
-        var RootSlide = RootPosition - _OldRootPosition;
-        _OldRootPosition = RootPosition;
+        var RootRotation = RootTransform.rotation;
+        var RootScale = RootTransform.lossyScale;
 
+        var RootSlide = RootPosition - _OldRootPosition;
         var SystemOffset = Vector3.zero;
         float SlideLength = RootSlide.magnitude;
         if (RootSlideLimit > 0.0f && SlideLength > RootSlideLimit)
         {
             SystemOffset = RootSlide * (1.0f - RootSlideLimit / SlideLength);
         }
+
+        var RootDeltaRotation = RootRotation * Quaternion.Inverse(_OldRootRotation);
+        float RotateAngle = Mathf.Acos(RootDeltaRotation.w) * 2.0f * Mathf.Rad2Deg;
+        Quaternion SystemRotation = Quaternion.identity;
+        if(RootRotateLimit > 0.0f && Mathf.Abs(RotateAngle) > RootRotateLimit)
+        {
+            Vector3 RotateAxis = Vector3.zero;
+            RootDeltaRotation.ToAngleAxis(out RotateAngle, out RotateAxis);
+            var Angle = (RotateAngle > 0.0f) ? (RotateAngle - RootRotateLimit) : (RotateAngle + RootRotateLimit);
+            SystemRotation = Quaternion.AngleAxis(Angle, RotateAxis);
+        }
+        
         var pRPoints = (PointRead*)_PointsR.GetUnsafePtr();
         var pRWPoints = (PointReadWrite*)_PointsRW.GetUnsafePtr();
         var pColliders = (Collider*)_Colliders.GetUnsafePtr();
@@ -337,6 +355,7 @@ public unsafe class SPCRJointDynamicsJob
 
         var PointUpdate = new JobPointUpdate();
         PointUpdate.RootMatrix = RootTransform.localToWorldMatrix;
+        PointUpdate.OldRootPosition = _OldRootPosition;
         PointUpdate.GrabberCount = _RefGrabbers.Length;
         PointUpdate.pGrabbers = pGrabbers;
         PointUpdate.pGrabberExs = pGrabberExs;
@@ -345,6 +364,7 @@ public unsafe class SPCRJointDynamicsJob
         PointUpdate.WindForce = WindForce;
         PointUpdate.StepTime_x2_Half = StepTime * StepTime * 0.5f;
         PointUpdate.SystemOffset = SystemOffset;
+        PointUpdate.SystemRotation = SystemRotation;
         _hJob = PointUpdate.Schedule(_PointCount, 8);
 
         for (int i = 0; i < Relaxation; ++i)
@@ -380,6 +400,9 @@ public unsafe class SPCRJointDynamicsJob
         PointToTransform.pRPoints = pRPoints;
         PointToTransform.pRWPoints = pRWPoints;
         _hJob = PointToTransform.Schedule(_TransformArray, _hJob);
+        
+        _OldRootPosition = RootPosition;
+        _OldRootRotation = RootRotation;
     }
 
     public void WaitForComplete()
@@ -419,12 +442,21 @@ public unsafe class SPCRJointDynamicsJob
         [ReadOnly]
         public Matrix4x4 RootMatrix;
         [ReadOnly]
+        public Vector3 OldRootPosition;
+        [ReadOnly]
         public Vector3 WindForce;
         [ReadOnly]
         public float StepTime_x2_Half;
 
         [ReadOnly]
         public Vector3 SystemOffset;
+        [ReadOnly]
+        public Quaternion SystemRotation;
+
+        private Vector3 ApplySystemTransform(Vector3 Point, Vector3 Pivot)
+        {
+            return SystemRotation * (Point - Pivot) + Pivot + SystemOffset;
+        }
 
         void IJobParallelFor.Execute(int index)
         {
@@ -433,16 +465,15 @@ public unsafe class SPCRJointDynamicsJob
 
             if (pR->Weight <= EPSILON)
             {
-                pRW->OldPosition = pRW->Position;
-                pRW->OldPosition = pRW->Position + SystemOffset;
+                pRW->OldPosition = ApplySystemTransform(pRW->Position, OldRootPosition);
                 pRW->Position = RootMatrix.MultiplyPoint3x4(pR->InitialPosition);
                 pRW->Friction = 0.0f;
 
                 return;
             }
 
-            pRW->Position += SystemOffset;
-            pRW->OldPosition += SystemOffset;
+            pRW->OldPosition = ApplySystemTransform(pRW->OldPosition, OldRootPosition);
+            pRW->Position = ApplySystemTransform(pRW->Position, OldRootPosition);
 
             Vector3 Force = Vector3.zero;
             Force += pR->Gravity;
