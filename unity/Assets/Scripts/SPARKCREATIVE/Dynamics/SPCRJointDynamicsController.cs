@@ -114,6 +114,8 @@ public class SPCRJointDynamicsController : MonoBehaviour
     public float _RootSlideLimit = -1.0f;   // Negative value is disable
     public float _RootRotateLimit = -1.0f;  // Negative value is disable
 
+    public int _DetailHitDivideMax = 0;
+
     public float _StructuralShrinkVertical = 1.0f;
     public float _StructuralStretchVertical = 1.0f;
     public float _StructuralShrinkHorizontal = 1.0f;
@@ -167,6 +169,7 @@ public class SPCRJointDynamicsController : MonoBehaviour
     public bool _IsDebugDraw_Shear = false;
     public bool _IsDebugDraw_BendingVertical = false;
     public bool _IsDebugDraw_BendingHorizontal = false;
+    public bool _IsDebugDraw_RuntimeColliderBounds = false;
 
     [SerializeField]
     SPCRJointDynamicsJob.Constraint[][] _ConstraintTable;
@@ -288,6 +291,7 @@ public class SPCRJointDynamicsController : MonoBehaviour
             _WindForce * WindForcePower,
             _Relaxation, _SpringK,
             _IsEnableFloorCollision, _FloorHeight,
+            _DetailHitDivideMax,
             _IsEnableColliderCollision);
     }
 
@@ -836,8 +840,18 @@ public class SPCRJointDynamicsController : MonoBehaviour
 
     public void OnDrawGizmos()
     {
+        if(!this.enabled)
+        {
+            return;
+        }
+
         Gizmos.color = Color.magenta;
         _Job.DrawGizmos_Points();
+
+        if(_IsDebugDraw_RuntimeColliderBounds && _ColliderTbl.Length > 0)
+        {
+            _Job.DrawGizmos_ColliderEx();
+        }
 
         if (_IsDebugDraw_StructuralVertical)
         {
