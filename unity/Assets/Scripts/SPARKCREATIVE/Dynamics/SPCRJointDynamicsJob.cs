@@ -374,6 +374,7 @@ public unsafe class SPCRJointDynamicsJob
         PointUpdate.StepTime_x2_Half = StepTime * StepTime * 0.5f;
         PointUpdate.SystemOffset = SystemOffset;
         PointUpdate.SystemRotation = SystemRotation;
+        PointUpdate.IsPaused = IsPaused;
         _hJob = PointUpdate.Schedule(_PointCount, 8);
 
         for (int i = 0; i < Relaxation; ++i)
