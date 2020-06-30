@@ -107,6 +107,7 @@ public unsafe class SPCRJointDynamicsJob
         public float RadiusTail;
         public float Height;
         public float Friction;
+        public float PushOutRate;
     }
 
     struct ColliderEx
@@ -224,6 +225,7 @@ public unsafe class SPCRJointDynamicsJob
                 ColliderR[i].Height = 0.0f;
             }
             ColliderR[i].Friction = src.Friction;
+            ColliderR[i].PushOutRate = src.PushOutRate;
         }
         _Colliders = new NativeArray<Collider>(Colliders.Length, Allocator.Persistent, NativeArrayOptions.UninitializedMemory);
         _Colliders.CopyFrom(ColliderR);
@@ -782,14 +784,18 @@ public unsafe class SPCRJointDynamicsJob
                     Collider* pCollider = pColliders + i;
                     ColliderEx* pColliderEx = pColliderExs + i;
 
+                    Vector3 point = pRW->Position;
+
                     if (pCollider->Height <= 0.0f)
                     {
-                        PushoutFromSphere(pCollider, pColliderEx, ref pRW->Position);
+                        PushoutFromSphere(pCollider, pColliderEx, ref point);
                     }
                     else
                     {
-                        PushoutFromCapsule(pCollider, pColliderEx, ref pRW->Position);
+                        PushoutFromCapsule(pCollider, pColliderEx, ref point);
                     }
+
+                    pRW->Position += (point - pRW->Position) * pCollider->PushOutRate;
                 }
             }
         }
