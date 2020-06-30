@@ -98,8 +98,8 @@ public class SPCRJointDynamicsController : MonoBehaviour
 
     public float _SpringK = 1.0f;
 
-    public float _RootSlideLimit = 0.0f;
-    public float _RootRotateLimit = 0.0f;
+    public float _RootSlideLimit = -1.0f;   // Negative value is disable
+    public float _RootRotateLimit = -1.0f;  // Negative value is disable
 
     public float _StructuralShrinkVertical = 1.0f;
     public float _StructuralStretchVertical = 1.0f;
