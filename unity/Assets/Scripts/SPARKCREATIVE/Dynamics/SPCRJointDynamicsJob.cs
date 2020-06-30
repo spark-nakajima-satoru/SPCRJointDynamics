@@ -902,6 +902,11 @@ public unsafe class SPCRJointDynamicsJob
                 Collider* pCollider = pColliders + i;
                 ColliderEx* pColliderEx = pColliderExs + i;
 
+                if(pCollider->PushOutRate < 1.0f)
+                {
+                    continue;
+                }
+
                 var Point0 = pColliderEx->WorldToLocal.MultiplyPoint3x4(pRW->OriginalOldPosition);
                 var Point1 = pColliderEx->WorldToLocal.MultiplyPoint3x4(pRW->Position);
                 var Direction = Point1 - Point0;
@@ -992,14 +997,7 @@ public unsafe class SPCRJointDynamicsJob
                 bool IsCatch = false;
                 if (CheckSphereCollisionOffset(Point, PrevPoint, Sphere, Radius, ColliderMove, PointMove, ref IsCatch, ref Offset))
                 {
-                    if (IsCatch)
-                    {
-                        pRW->Position = ColliderPoint1 + Offset;
-                    }
-                    else
-                    {
-                        pRW->Position = Point + Offset;
-                    }
+                    pRW->Position = ColliderPoint1 + Offset; // * pCollider->PushOutRate;
                     break;
                 }
 
@@ -1050,15 +1048,8 @@ public unsafe class SPCRJointDynamicsJob
                 bool IsCatch = false;
                 if (CheckSphereCollisionOffset(Point, PrevPoint, ColliderPoint, Radius, ColliderMove, PointMove, ref IsCatch, ref Offset))
                 {
-                    if (IsCatch)
-                    {
-                        ColliderPoint = ColliderHead1 + ColliderDir1 * w;
-                        pRW->Position = ColliderPoint + Offset;
-                    }
-                    else
-                    {
-                        pRW->Position = Point + Offset;
-                    }
+                    ColliderPoint = ColliderHead1 + ColliderDir1 * w;
+                    pRW->Position = ColliderPoint + Offset; // * pCollider->PushOutRate;
                     break;
                 }
 
