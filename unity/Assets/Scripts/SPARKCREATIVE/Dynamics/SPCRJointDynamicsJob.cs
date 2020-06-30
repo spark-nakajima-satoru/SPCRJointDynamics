@@ -296,6 +296,8 @@ public unsafe class SPCRJointDynamicsJob
         bool IsEnableFloorCollision, float FloorHeight,
         bool IsEnableColliderCollision)
     {
+        bool IsPaused = StepTime <= 0.0f;
+
         WaitForComplete();
 
         var RootPosition = RootTransform.position;
@@ -319,6 +321,12 @@ public unsafe class SPCRJointDynamicsJob
             RootDeltaRotation.ToAngleAxis(out RotateAngle, out RotateAxis);
             var Angle = (RotateAngle > 0.0f) ? (RotateAngle - RootRotateLimit) : (RotateAngle + RootRotateLimit);
             SystemRotation = Quaternion.AngleAxis(Angle, RotateAxis);
+        }
+        
+        if(IsPaused)
+        {
+            SystemOffset = RootSlide;
+            SystemRotation = RootDeltaRotation;
         }
         
         var pRPoints = (PointRead*)_PointsR.GetUnsafePtr();
@@ -453,6 +461,8 @@ public unsafe class SPCRJointDynamicsJob
         public Vector3 SystemOffset;
         [ReadOnly]
         public Quaternion SystemRotation;
+        [ReadOnly]
+        public bool IsPaused;
 
         private Vector3 ApplySystemTransform(Vector3 Point, Vector3 Pivot)
         {
@@ -476,16 +486,19 @@ public unsafe class SPCRJointDynamicsJob
             pRW->OldPosition = ApplySystemTransform(pRW->OldPosition, OldRootPosition);
             pRW->Position = ApplySystemTransform(pRW->Position, OldRootPosition);
 
-            Vector3 Force = Vector3.zero;
-            Force += pR->Gravity;
-            Force += WindForce;
-            Force *= StepTime_x2_Half;
+            Vector3 Displacement = Vector3.zero;
+            if(!IsPaused)
+            {
+                Vector3 Force = Vector3.zero;
+                Force += pR->Gravity;
+                Force += WindForce;
+                Force *= StepTime_x2_Half;
 
-            Vector3 Displacement;
-            Displacement = pRW->Position - pRW->OldPosition;
-            Displacement += Force / pR->Mass;
-            Displacement *= pR->Resistance;
-            Displacement *= 1.0f - (pRW->Friction * pR->FrictionScale);
+                Displacement = pRW->Position - pRW->OldPosition;
+                Displacement += Force / pR->Mass;
+                Displacement *= pR->Resistance;
+                Displacement *= 1.0f - (pRW->Friction * pR->FrictionScale);
+            }
 
             pRW->OldPosition = pRW->Position;
             pRW->Position += Displacement;
