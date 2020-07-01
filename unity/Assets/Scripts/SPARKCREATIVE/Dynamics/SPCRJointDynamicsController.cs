@@ -254,8 +254,18 @@ public class SPCRJointDynamicsController : MonoBehaviour
             Points[Points[i].Child].Parent = _PointTbl[i]._Index;
         }
 
+        var EnableColliders = new List<SPCRJointDynamicsCollider>(_ColliderTbl.Length);
+        foreach(var collider in _ColliderTbl)
+        {
+            if(collider == null || !collider.gameObject.activeInHierarchy)
+            {
+                continue;
+            }
+            EnableColliders.Add(collider);
+        }
+
         CreationConstraintTable();
-        _Job.Initialize(_RootTransform, Points, PointTransforms, _ConstraintTable, _ColliderTbl, _PointGrabberTbl);
+        _Job.Initialize(_RootTransform, Points, PointTransforms, _ConstraintTable, EnableColliders.ToArray(), _PointGrabberTbl);
 
         _Delay = 15.0f / 60.0f;
     }
